@@ -1,0 +1,43 @@
+.bg-grey {
+    background-color: #2C2E3A;
+}
+
+.bg-lightgrey {
+    background-color: #FFFFFF;
+}
+
+.browser-font {
+    color: white;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.min-width-650 {
+    min-width: 650px;
+}
+
+.search-bar {
+    margin-left: 40px;
+    min-width: 305px;
+}
+
+.search-button {
+    border-radius: 50%;
+    background-color: #008CBA;
+    border-width: 1px;
+}
+
+.endpoint-dropdown {
+    display: flex;
+    justify-content: flex-end;
+    min-width: 80px;
+}
+
+.endpoint-select {
+    width: 300px;
+}
+
+iframe {
+    max-width: 100%;
+    width: 100%;
+    height: 100%;
+}
