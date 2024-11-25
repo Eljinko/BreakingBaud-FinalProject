@@ -18,15 +18,24 @@
 Below are the method types and their respective fields
 {
   "Method": "CONNECT",
+  "Password": "password",
   "ServerId": currentServerId,
 }
 
 {
-  "Method": "DISPLAYPDF" or "DISPLATHTML,
+  "Method": "DISPLAYPDF" or "DISPLATHTML",
   "Endpoint": "filename",
   "ServerId": currentServerId,
   "ClientId": currentClientId,
   "Body": null <(can be filled if needed)>
+}
+
+{
+  "Method": "UPLOAD",
+  "ServerId": currentServerId,
+  "ClientId": currentClientId,
+  "FileName": fileName,
+  "FileContent": content
 }
 
 {

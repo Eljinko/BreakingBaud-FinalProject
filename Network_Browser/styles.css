@@ -11,8 +11,8 @@
     font-family: 'Courier New', Courier, monospace;
 }
 
-.min-width-650 {
-    min-width: 650px;
+.min-width-750 {
+    min-width: 750px;
 }
 
 .search-bar {
@@ -20,7 +20,7 @@
     min-width: 305px;
 }
 
-.search-button {
+.button-blue {
     border-radius: 50%;
     background-color: #008CBA;
     border-width: 1px;
@@ -34,6 +34,10 @@
 
 .endpoint-select {
     width: 300px;
+}
+
+.file-input {
+    display: none;
 }
 
 iframe {

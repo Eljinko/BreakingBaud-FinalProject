@@ -3,9 +3,13 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = 4200;
-var currentConnections = [];
+const MAX_CONNECTIONS = 50;
+const FILE_DIRECTORY = "Files";
+const filePath = path.join(__dirname, FILE_DIRECTORY);
+const PASSWORD = "password";
 
-const filePath = path.join(__dirname, 'Files');
+currentConnections = [];
+
 var pdfFiles = [];
 var htmlFiles = [];
 
@@ -24,12 +28,19 @@ function handleRequest(ws, message) {
     console.log(jsonMessage);
     let response = {};
     response.Method = jsonMessage.Method;
-    response.Status = 400;
-    response.StatusText = "OK";
     switch(jsonMessage.Method) {
         case 'CONNECT':
-            response.ClientId = 0; // temp client id
-            currentConnections.push(response.ClientId);
+            if (jsonMessage.Password != PASSWORD) {
+                ws.send(createErrorMessage(RESPONSE_STATUS.ConnectionRejected, RESPONSE_TEXT.ConnectionRejected, -1));
+                return;
+            }
+            if (currentConnections.length >= MAX_CONNECTIONS) {
+                ws.send(createErrorMessage(RESPONSE_STATUS.ConnectionLimitReached, RESPONSE_TEXT.ConnectionLimitReached, -1));
+                return;
+            }
+            createdConnection = new Connection();
+            response.ClientId = createdConnection.getClientId();
+            currentConnections.push(createdConnection);
             let endpointList = [];
             for (let pdf of pdfFiles) {
                 endpointList.push("DISPLAYPDF " + pdf);
@@ -37,6 +48,8 @@ function handleRequest(ws, message) {
                 endpointList.push("DISPLAYHTML " + html);
             }
             response.EndpointList = endpointList;
+            response.Status = RESPONSE_STATUS.OK;
+            response.StatusText = RESPONSE_TEXT.OK;
             ws.send(JSON.stringify(response));
             break;
         case 'DISPLAYHTML':
@@ -44,10 +57,13 @@ function handleRequest(ws, message) {
             response.HTMLTitle = jsonMessage.Endpoint;
             fs.readFile(path.join(filePath, jsonMessage.Endpoint), { encoding: 'utf8' }, (err, data) => {
                 if (err) {
-                    ws.send(createErrorMessage(200, "File not found", response.ClientId));
+                    ws.send(createErrorMessage(RESPONSE_STATUS.FileNotFound, RESPONSE_TEXT.FileNotFound, response.ClientId));
                     return;
                 }
                 response.HTML = data;
+                response.Status = RESPONSE_STATUS.OK;
+                response.StatusText = RESPONSE_TEXT.OK;
+                setConnectionTime(jsonMessage.ClientId);
                 ws.send(JSON.stringify(response));
             });
             break;
@@ -56,15 +72,49 @@ function handleRequest(ws, message) {
             response.PDFTitle = jsonMessage.Endpoint;
             fs.readFile(path.join(filePath, jsonMessage.Endpoint), { encoding: 'base64' }, (err, data) => {
                 if (err) {
-                    ws.send(createErrorMessage(200, "File not found", response.ClientId));
+                    ws.send(createErrorMessage(ERROR_STATUS.FileNotFound, ERROR_TEXT.FileNotFound, response.ClientId));
                     return;
                 }
                 response.PDF = data;
+                response.Status = RESPONSE_STATUS.OK;
+                response.StatusText = RESPONSE_TEXT.OK;
+                setConnectionTime(jsonMessage.ClientId);
                 ws.send(JSON.stringify(response));
             });
             break;
+        case 'UPLOAD':
+            const fp = path.join(__dirname, FILE_DIRECTORY, jsonMessage.FileName);
+
+            fs.exists(fp, (exists) => {
+                if (!exists) {
+                  let data;
+                  if (path.extname(jsonMessage.FileName).toLowerCase() == ".pdf") {
+                    data = Buffer.from(jsonMessage.FileContent, 'base64');
+                  } else {
+                    data = jsonMessage.FileContent;
+                  }
+                  fs.writeFile(fp, data, (err) => {
+                    if (err) {
+                        ws.send(createErrorMessage(RESPONSE_STATUS.FileUploadError, RESPONSE_TEXT.FileUploadError, jsonMessage.ClientId));
+                    } else {
+                      if (path.extname(jsonMessage.FileName).toLowerCase() == "pdf") {
+                        pdfFiles.push(jsonMessage.FileName);
+                      } else {
+                        htmlFiles.push(jsonMessage.FileName);
+                      }
+                    }
+                });
+                    response.ClientId = jsonMessage.clientId;
+                    response.Status = RESPONSE_STATUS.OK;
+                    response.StatusText = RESPONSE_TEXT.OK;
+                    ws.send(JSON.stringify(response));
+                } else {
+                  ws.send(createErrorMessage(RESPONSE_STATUS.FileNameUnavalable, RESPONSE_TEXT.FileNameUnavalable, jsonMessage.ClientId));
+                }
+              });
+            break;
         case 'DISCONNECT':
-            currentConnections.filter(clientId => clientId != jsonMessage.ClientId);
+            currentConnections.filter(connection=> connection.getClientId() != jsonMessage.ClientId);
             ws.close();
             break;
         default:
@@ -80,6 +130,15 @@ function createErrorMessage(errorNumber, errorMessage, clientId) {
     toReturn.Status = errorNumber;
     toReturn.StatusText = errorMessage;
     return JSON.stringify(toReturn);
+}
+
+function setConnectionTime(clientId) {
+    for (const x of currentConnections) {
+        if (x.getClientId() == clientId) {
+            x.setDateTimeNow();
+            return;
+        }
+    }
 }
 
 /* Add all current files to the pdfFiles and htmlFiles  array*/
@@ -98,4 +157,58 @@ fs.readdir(filePath, (err, files) => {
     });
 });
 
+function removeIdleConnections() {
+    for (const x of currentConnections) {
+        let tenMinutesInMillesseconds = 600000;
+        console.log(x);
+        if (Date.now() - x.getDateTime > tenMinutesInMillesseconds) {
+            x.ws.close();
+            currentConnections.filter(connection=> connection.getClientId() != x.ClientId);
+        }
+    }
+}
+
+setInterval(removeIdleConnections, 30000);
 console.log("Server running on 'ws://localhost:" + PORT + "'");
+
+class Connection {
+    static nextId = 0;
+    clientId;
+    lastConnected;
+
+    constructor(ws) {
+        this.clientId = Connection.nextId;
+        Connection.nextId++;
+        this.lastConnected = Date.now();
+    }
+
+    getClientId() {
+        return this.clientId;
+    }
+
+    getDateTime() {
+        return this.lastConnected;
+    }
+
+    setDateTimeNow() {
+        this.lastConnected = Date.now();
+    }
+}
+
+const RESPONSE_STATUS = Object.freeze({
+    OK: 0,
+    FileNotFound: 1,
+    FileNameUnavalable: 2,
+    FileUploadError: 3,
+    ConnectionRejected: 4,
+    ConnectionLimitReached: 5
+});
+
+const RESPONSE_TEXT = Object.freeze({
+    OK: "OK",
+    FileNotFound: "File was not found",
+    FileNameUnavalable: "File name is already present, please change it",
+    FileUploadError: "An error occured when downloading the file",
+    ConnectionRejected: "Connection was rejected",
+    ConnectionLimitReached: "Unable to connect, the servers connection limit was reached."
+});

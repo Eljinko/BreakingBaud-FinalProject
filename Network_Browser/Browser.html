@@ -6,16 +6,19 @@
     </head>
     <body>
         <div class="container-fluid bg-grey browser-font py-3" id="content-navigator">
-            <div class="row min-width-650">
+            <div class="row min-width-750">
                 <div class="col-6 search-bar">
+                    <button class="button-blue" id="disconnect-button"><img src="static/disconnect.png" width="20" height="20"></button>
                     <input type="text" placeholder="Enter Server Id" id="search-bar">
-                    <button class="search-button" id="connect-button"><img src="static/searchbutton.png" width="20" height="20"></button>
+                    <button class="button-blue" id="connect-button"><img src="static/searchbutton.png" width="20" height="20"></button>
+                    <button class="button-blue" id="upload-button"><img src="static/upload.png" width="20" height="20"></button>
+                    <input type="file" id="file-input" class="file-input" accept=".html,.pdf">
                 </div>
                 <div class="col-5 endpoint-dropdown">
                     <select class="endpoint-select" name="endpoints" id="endpoint-select">
                         <option value="" disabled selected name="" id="endpoint-option">No server connected</option>
                     </select>
-                    <button class="search-button mx-2" id="endpoint-button">GO</button>
+                    <button class="button-blue mx-2" id="endpoint-button">GO</button>
                 </div>
             </div>
         </div>
