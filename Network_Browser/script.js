@@ -136,7 +136,7 @@ Returns: a string of the connection message */
 function createConnectionMessage() {
     let connectionMessage = {};
     connectionMessage["Method"] = "CONNECT";
-    connectionMessage["Password"] = "password"; // To alter later
+    connectionMessage["Password"] = document.getElementById("password-bar").value;
     connectionMessage["ServerId"] = currentServerId;
     return JSON.stringify(connectionMessage);
 }
@@ -146,9 +146,9 @@ with the endpoints retrieved from the server upon connection. The endpoint will 
 Returns: a string of the request message*/
 function createRequestMessage(endpoint) {
     let requestMessage = {};
-    let path = endpoint.split(' ');
-    requestMessage["Method"] = path[0];
-    requestMessage["Endpoint"] = path[1];
+    let firstSpaceIndex = endpoint.indexOf(' ');
+    requestMessage["Method"] = endpoint.substring(0, firstSpaceIndex);
+    requestMessage["Endpoint"] = endpoint.substring(firstSpaceIndex + 1);
     requestMessage["ServerId"] = currentServerId;
     requestMessage["ClientId"] = currentClientId;
     requestMessage["Body"] = null;
@@ -193,6 +193,8 @@ function handleMessage(message) {
         case 'CONNECT':
             if (jsonMessage.Status != RESPONSE_STATUS.OK) {
                 alert(jsonMessage.StatusText);
+                currentClientId = undefined;
+                currentServerId = undefined;
                 return;
             }
             currentClientId = jsonMessage.ClientId;
@@ -291,5 +293,6 @@ const RESPONSE_STATUS = Object.freeze({
     FileNameUnavalable: 2,
     FileUploadError: 3,
     ConnectionRejected: 4,
-    ConnectionLimitReached: 5
+    ConnectionLimitReached: 5,
+    ConnectionTimeOut: 6
 });
