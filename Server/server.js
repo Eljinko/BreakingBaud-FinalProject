@@ -6,7 +6,7 @@ const PORT = 4200;
 const MAX_CONNECTIONS = 50;
 const FILE_DIRECTORY = "Files";
 const filePath = path.join(__dirname, FILE_DIRECTORY);
-const PASSWORD = "password";
+const PASSWORD = "modem";
 
 currentConnections = [];
 
@@ -28,14 +28,28 @@ function handleRequest(ws, message) {
     console.log(jsonMessage);
     let response = {};
     response.Method = jsonMessage.Method;
+    if (jsonMessage.Method != 'CONNECT') {
+        let disconnected = true;
+        for (const x of currentConnections) {
+            if (x.getClientId() == jsonMessage.ClientId) {
+                disconnected = false;
+                break;
+            }
+        }
+        if (disconnected) {
+            ws.send(createErrorMessage(jsonMessage.Method, RESPONSE_STATUS.ConnectionTimeOut, RESPONSE_TEXT.ConnectionTimeOut, -1));
+            ws.close();
+            return;
+        }
+    }
     switch(jsonMessage.Method) {
         case 'CONNECT':
             if (jsonMessage.Password != PASSWORD) {
-                ws.send(createErrorMessage(RESPONSE_STATUS.ConnectionRejected, RESPONSE_TEXT.ConnectionRejected, -1));
+                ws.send(createErrorMessage(jsonMessage.Method, RESPONSE_STATUS.ConnectionRejected, RESPONSE_TEXT.ConnectionRejected, -1));
                 return;
             }
             if (currentConnections.length >= MAX_CONNECTIONS) {
-                ws.send(createErrorMessage(RESPONSE_STATUS.ConnectionLimitReached, RESPONSE_TEXT.ConnectionLimitReached, -1));
+                ws.send(createErrorMessage(jsonMessage.Method, RESPONSE_STATUS.ConnectionLimitReached, RESPONSE_TEXT.ConnectionLimitReached, -1));
                 return;
             }
             createdConnection = new Connection();
@@ -57,7 +71,7 @@ function handleRequest(ws, message) {
             response.HTMLTitle = jsonMessage.Endpoint;
             fs.readFile(path.join(filePath, jsonMessage.Endpoint), { encoding: 'utf8' }, (err, data) => {
                 if (err) {
-                    ws.send(createErrorMessage(RESPONSE_STATUS.FileNotFound, RESPONSE_TEXT.FileNotFound, response.ClientId));
+                    ws.send(createErrorMessage(jsonMessage.Method, RESPONSE_STATUS.FileNotFound, RESPONSE_TEXT.FileNotFound, response.ClientId));
                     return;
                 }
                 response.HTML = data;
@@ -72,7 +86,7 @@ function handleRequest(ws, message) {
             response.PDFTitle = jsonMessage.Endpoint;
             fs.readFile(path.join(filePath, jsonMessage.Endpoint), { encoding: 'base64' }, (err, data) => {
                 if (err) {
-                    ws.send(createErrorMessage(ERROR_STATUS.FileNotFound, ERROR_TEXT.FileNotFound, response.ClientId));
+                    ws.send(createErrorMessage(jsonMessage.Method, ERROR_STATUS.FileNotFound, ERROR_TEXT.FileNotFound, response.ClientId));
                     return;
                 }
                 response.PDF = data;
@@ -97,7 +111,7 @@ function handleRequest(ws, message) {
                     if (err) {
                         ws.send(createErrorMessage(RESPONSE_STATUS.FileUploadError, RESPONSE_TEXT.FileUploadError, jsonMessage.ClientId));
                     } else {
-                      if (path.extname(jsonMessage.FileName).toLowerCase() == "pdf") {
+                      if (path.extname(jsonMessage.FileName).toLowerCase() == ".pdf") {
                         pdfFiles.push(jsonMessage.FileName);
                       } else {
                         htmlFiles.push(jsonMessage.FileName);
@@ -114,7 +128,7 @@ function handleRequest(ws, message) {
               });
             break;
         case 'DISCONNECT':
-            currentConnections.filter(connection=> connection.getClientId() != jsonMessage.ClientId);
+            currentConnections = currentConnections.filter(connection=> connection.getClientId() != jsonMessage.ClientId);
             ws.close();
             break;
         default:
@@ -124,8 +138,9 @@ function handleRequest(ws, message) {
 }
 
 /* Creates an error message to send back, with error status number and response */
-function createErrorMessage(errorNumber, errorMessage, clientId) {
+function createErrorMessage(method, errorNumber, errorMessage, clientId) {
     let toReturn = {};
+    toReturn.Method = method;
     toReturn.ClientId = clientId;
     toReturn.Status = errorNumber;
     toReturn.StatusText = errorMessage;
@@ -159,16 +174,14 @@ fs.readdir(filePath, (err, files) => {
 
 function removeIdleConnections() {
     for (const x of currentConnections) {
-        let tenMinutesInMillesseconds = 600000;
-        console.log(x);
-        if (Date.now() - x.getDateTime > tenMinutesInMillesseconds) {
-            x.ws.close();
-            currentConnections.filter(connection=> connection.getClientId() != x.ClientId);
+        let tenMinutesInMillesseconds = 600;
+        if ((Date.now() - x.getDateTime()) > tenMinutesInMillesseconds) {
+            currentConnections = currentConnections.filter(connection=> connection.getClientId() != x.getClientId());
         }
     }
 }
 
-setInterval(removeIdleConnections, 30000);
+setInterval(removeIdleConnections, 3000);
 console.log("Server running on 'ws://localhost:" + PORT + "'");
 
 class Connection {
@@ -201,7 +214,8 @@ const RESPONSE_STATUS = Object.freeze({
     FileNameUnavalable: 2,
     FileUploadError: 3,
     ConnectionRejected: 4,
-    ConnectionLimitReached: 5
+    ConnectionLimitReached: 5,
+    ConnectionTimeOut: 6
 });
 
 const RESPONSE_TEXT = Object.freeze({
@@ -210,5 +224,6 @@ const RESPONSE_TEXT = Object.freeze({
     FileNameUnavalable: "File name is already present, please change it",
     FileUploadError: "An error occured when downloading the file",
     ConnectionRejected: "Connection was rejected",
-    ConnectionLimitReached: "Unable to connect, the servers connection limit was reached."
+    ConnectionLimitReached: "Unable to connect, the servers connection limit was reached",
+    ConnectionTimeOut: "Connection timeout"
 });
