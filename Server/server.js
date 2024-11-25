@@ -97,6 +97,7 @@ function handleRequest(ws, message) {
             });
             break;
         case 'UPLOAD':
+            setConnectionTime(jsonMessage.ClientId);
             const fp = path.join(__dirname, FILE_DIRECTORY, jsonMessage.FileName);
 
             fs.exists(fp, (exists) => {
@@ -109,7 +110,7 @@ function handleRequest(ws, message) {
                   }
                   fs.writeFile(fp, data, (err) => {
                     if (err) {
-                        ws.send(createErrorMessage(RESPONSE_STATUS.FileUploadError, RESPONSE_TEXT.FileUploadError, jsonMessage.ClientId));
+                        ws.send(createErrorMessage(jsonMessage.Method, RESPONSE_STATUS.FileUploadError, RESPONSE_TEXT.FileUploadError, jsonMessage.ClientId));
                     } else {
                       if (path.extname(jsonMessage.FileName).toLowerCase() == ".pdf") {
                         pdfFiles.push(jsonMessage.FileName);
@@ -123,7 +124,7 @@ function handleRequest(ws, message) {
                     response.StatusText = RESPONSE_TEXT.OK;
                     ws.send(JSON.stringify(response));
                 } else {
-                  ws.send(createErrorMessage(RESPONSE_STATUS.FileNameUnavalable, RESPONSE_TEXT.FileNameUnavalable, jsonMessage.ClientId));
+                  ws.send(createErrorMessage(jsonMessage.Method, RESPONSE_STATUS.FileNameUnavalable, RESPONSE_TEXT.FileNameUnavalable, jsonMessage.ClientId));
                 }
               });
             break;
@@ -174,14 +175,14 @@ fs.readdir(filePath, (err, files) => {
 
 function removeIdleConnections() {
     for (const x of currentConnections) {
-        let tenMinutesInMillesseconds = 600;
+        let tenMinutesInMillesseconds = 600000;
         if ((Date.now() - x.getDateTime()) > tenMinutesInMillesseconds) {
             currentConnections = currentConnections.filter(connection=> connection.getClientId() != x.getClientId());
         }
     }
 }
 
-setInterval(removeIdleConnections, 3000);
+setInterval(removeIdleConnections, 30000);
 console.log("Server running on 'ws://localhost:" + PORT + "'");
 
 class Connection {
