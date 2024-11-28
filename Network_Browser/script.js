@@ -223,12 +223,6 @@ function handleMessage(message) {
             if (jsonMessage.Status != RESPONSE_STATUS.OK) {
                 alert(jsonMessage.StatusText);
             } else {
-                endpointList = jsonMessage.EndpointList;
-                let endpointSelect = document.getElementById("endpoint-select");
-                endpointSelect.innerHTML = "";
-                for (endpoint of endpointList) {
-                    endpointSelect.innerHTML += `<option value="` + endpoint + `">` + endpoint +`</option>`;
-                }
                 iframe.src = "static/Upload_Success.html";
             }
             break;
