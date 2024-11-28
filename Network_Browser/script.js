@@ -89,7 +89,6 @@ function createWebSocket(serverId) {
     return new Promise((resolve, reject) => {
         webSocket = new WebSocket(serverId);
         webSocket.onopen = () => {
-            console.log('Connected to the server!'); 
             currentServerId = serverId;
             webSocket.send(createConnectionMessage());
             resolve(webSocket);
@@ -199,7 +198,6 @@ function handleMessage(message) {
             }
             currentClientId = jsonMessage.ClientId;
             endpointList = jsonMessage.EndpointList;
-            console.log(endpointList);
             let endpointSelect = document.getElementById("endpoint-select");
             endpointSelect.innerHTML = "";
             for (endpoint of endpointList) {
@@ -225,6 +223,12 @@ function handleMessage(message) {
             if (jsonMessage.Status != RESPONSE_STATUS.OK) {
                 alert(jsonMessage.StatusText);
             } else {
+                endpointList = jsonMessage.EndpointList;
+                let endpointSelect = document.getElementById("endpoint-select");
+                endpointSelect.innerHTML = "";
+                for (endpoint of endpointList) {
+                    endpointSelect.innerHTML += `<option value="` + endpoint + `">` + endpoint +`</option>`;
+                }
                 iframe.src = "static/Upload_Success.html";
             }
             break;
